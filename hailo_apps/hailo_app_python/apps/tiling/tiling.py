@@ -9,7 +9,7 @@ from gi.repository import Gst
 # Local application-specific imports
 import hailo
 from hailo_apps.hailo_app_python.core.gstreamer.gstreamer_app import app_callback_class
-from hailo_apps.hailo_app_python.apps.rtsp.rtsp_pipeline import GStreamerRTSPApp
+from hailo_apps.hailo_app_python.apps.tiling.tiling_pipeline import GStreamerTilingApp
 # endregion imports
 
 # User-defined class to be used in the callback function: Inheritance from the app_callback_class
@@ -24,12 +24,25 @@ def app_callback(pad, info, user_data):
     buffer = info.get_buffer()  # Get the GstBuffer from the probe info
     if buffer is None:  # Check if the buffer is valid
         return Gst.PadProbeReturn.OK
-    for detection in hailo.get_roi_from_buffer(buffer).get_objects_typed(hailo.HAILO_DETECTION):  # Get the detections from the buffer & Parse the detections
-        string_to_print += (f"Detection: {detection.get_label()} Confidence: {detection.get_confidence():.2f}\n")
+    
+    roi = hailo.get_roi_from_buffer(buffer)
+    detections = roi.get_objects_typed(hailo.HAILO_DETECTION)
+    
+    # Process detections from tiled inference
+    for detection in detections:
+        label = detection.get_label()
+        confidence = detection.get_confidence()
+        bbox = detection.get_bbox()
+        string_to_print += (
+            f"Detection: {label} "
+            f"Confidence: {confidence:.2f} "
+            f"BBox: [{bbox.xmin():.2f}, {bbox.ymin():.2f}, {bbox.width():.2f}, {bbox.height():.2f}]\n"
+        )
+    
     print(string_to_print)
     return Gst.PadProbeReturn.OK
 
 if __name__ == "__main__":
     user_data = user_app_callback_class()  # Create an instance of the user app callback class
-    app = GStreamerRTSPApp(app_callback, user_data)
+    app = GStreamerTilingApp(app_callback, user_data)
     app.run()

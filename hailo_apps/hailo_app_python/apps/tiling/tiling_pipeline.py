@@ -16,6 +16,7 @@ from hailo_apps.hailo_app_python.core.common.defines import (
     TILING_POSTPROCESS_SO_FILENAME, 
     TILING_POSTPROCESS_FUNCTION,
     RESOURCES_SO_DIR_NAME,
+    RESOURCES_MODELS_DIR_NAME,
 )
 from hailo_apps.hailo_app_python.core.gstreamer.gstreamer_helper_pipelines import SOURCE_PIPELINE, INFERENCE_PIPELINE, USER_CALLBACK_PIPELINE, DISPLAY_PIPELINE, TILE_CROPPER_PIPELINE
 from hailo_apps.hailo_app_python.core.gstreamer.gstreamer_app import GStreamerApp, app_callback_class, dummy_callback
@@ -56,8 +57,28 @@ class GStreamerTilingApp(GStreamerApp):
         else:
             self.arch = self.options_menu.arch
 
-        self.hef_path = '/home/hailo/Desktop/hailo-apps-infra/resources/tiling/ssd_mobilenet_v1.hef'
-        self.post_process_so = get_resource_path(pipeline_name=None, resource_type=RESOURCES_SO_DIR_NAME, model=TILING_POSTPROCESS_SO_FILENAME)
+        # Get HEF path from command line or use default resource path
+        if self.options_menu.hef_path is not None:
+            self.hef_path = self.options_menu.hef_path
+        else:
+            # Try to get the model from resources, fallback to a sensible default
+            self.hef_path = get_resource_path(
+                pipeline_name=None, 
+                resource_type=RESOURCES_MODELS_DIR_NAME, 
+                model='ssd_mobilenet_v1'
+            )
+            if self.hef_path is None:
+                # Fallback to detection model if tiling model not available
+                self.hef_path = get_resource_path(
+                    pipeline_name='detection',
+                    resource_type=RESOURCES_MODELS_DIR_NAME
+                )
+        
+        self.post_process_so = get_resource_path(
+            pipeline_name=None, 
+            resource_type=RESOURCES_SO_DIR_NAME, 
+            model=TILING_POSTPROCESS_SO_FILENAME
+        )
         self.post_function = TILING_POSTPROCESS_FUNCTION
 
         self.app_callback = app_callback
@@ -106,20 +127,28 @@ class GStreamerTilingApp(GStreamerApp):
         return pipeline_string
     
 def app_callback(pad, info, user_data):
+    """Custom callback to process detections from tiled inference."""
     buffer = info.get_buffer()
     if buffer is None:
         return Gst.PadProbeReturn.OK
+    
     roi = hailo.get_roi_from_buffer(buffer)
     detections = roi.get_objects_typed(hailo.HAILO_DETECTION)
+    
+    # Process each detection from the aggregated tiles
     for detection in detections:
-        track_id = detection.get_objects_typed(hailo.HAILO_UNIQUE_ID)[0].get_id()
-        print(f'Unified callback, {roi.get_stream_id()}_{detection.get_label()}_{track_id}')
+        label = detection.get_label()
+        confidence = detection.get_confidence()
+        bbox = detection.get_bbox()
+        # Optional: print detection info for debugging
+        # print(f'Detection: {label} ({confidence:.2f}) at [{bbox.xmin():.2f}, {bbox.ymin():.2f}, {bbox.width():.2f}, {bbox.height():.2f}]')
+    
     return Gst.PadProbeReturn.OK
 
 def main():
     # Create an instance of the user app callback class
     user_data = app_callback_class()
-    app_callback = dummy_callback
+    # Use the custom callback to process tiled detections
     app = GStreamerTilingApp(app_callback, user_data)
     app.run()
 
