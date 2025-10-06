@@ -56,6 +56,7 @@ hailo-tile --input rpi --single_scaling
 
 ## Command-line Arguments
 
+### Tiling Parameters
 - `--tiles_along_x_axis`: Number of tiles along x axis (columns). Default: 4
 - `--tiles_along_y_axis`: Number of tiles along y axis (rows). Default: 3
 - `--overlap_x_axis`: Overlap percentage between tiles along x axis. Default: 0.1
@@ -65,6 +66,17 @@ hailo-tile --input rpi --single_scaling
 - `--single_scaling`: Use single scaling instead of multi-scaling. Default: False
 - `--scale_level`: Number of scale layers [0-3]. Default: 2. For single scaling, must be 0.
 
+### Model Parameters
+- `--hef-path`: Path to your custom .hef model file
+- `--post-process-so`: Path to post-processing .so file (optional, defaults to YOLO post-process)
+- `--post-function`: Post-processing function name (optional, defaults to `filter_letterbox`)
+
+### Default Post-Processing Parameters
+The application uses these optimized defaults for YOLO models:
+- **NMS Score Threshold**: 0.3 (minimum confidence to keep a detection)
+- **NMS IoU Threshold**: 0.45 (overlap threshold for duplicate removal)
+- **Output Format**: FLOAT32
+
 ## How It Works
 
 1. **Tile Cropping**: The input frame is divided into overlapping tiles based on the specified parameters
@@ -72,12 +84,57 @@ hailo-tile --input rpi --single_scaling
 3. **Aggregation**: Detections from all tiles are combined using NMS to remove duplicates
 4. **Output**: The final frame contains all unique detections from all tiles
 
+## Using Your Own Model
+
+You can use your custom `.hef` model with the tiling application:
+
+### Basic usage with custom model:
+```bash
+hailo-tile --input rpi \
+  --hef-path /path/to/your/model.hef
+```
+
+### For YOLO models (recommended for object detection):
+```bash
+# YOLO with standard post-processing
+hailo-tile --input rpi \
+  --hef-path /path/to/yolov8_hornet.hef \
+  --post-process-so /usr/lib/hailo-post-processes/libyolo_hailortpp_postprocess.so \
+  --post-function filter
+
+# YOLO with letterbox post-processing (if your model uses letterbox)
+hailo-tile --input rpi \
+  --hef-path /path/to/yolov8_hornet.hef \
+  --post-process-so /usr/lib/hailo-post-processes/libyolo_hailortpp_postprocess.so \
+  --post-function filter_letterbox
+```
+
+### Complete example for hornet detection:
+```bash
+hailo-tile --input rpi \
+  --hef-path /home/pi/models/yolov8n_hornet_640.hef \
+  --post-process-so /usr/lib/hailo-post-processes/libyolo_hailortpp_postprocess.so \
+  --post-function filter \
+  --tiles_along_x_axis 6 \
+  --tiles_along_y_axis 4 \
+  --overlap_x_axis 0.15 \
+  --overlap_y_axis 0.15 \
+  --scale_level 2
+```
+
+### Available post-processing libraries:
+- **YOLO**: `libyolo_hailortpp_postprocess.so` (functions: `filter`, `filter_letterbox`)
+- **MobileNet SSD**: `libmobilenet_ssd_postprocess.so` (function: `mobilenet_ssd`)
+- **YOLOv5 Segmentation**: `libyolov5seg_postprocess.so` (function: `filter_letterbox`)
+- **YOLOv8 Pose**: `libyolov8pose_postprocess.so` (function: `filter_letterbox`)
+
 ## Notes
 
 - Multi-scale tiling processes the image at multiple resolutions for better small object detection
 - Single-scale tiling is faster but may miss very small objects
 - Increase overlap to reduce the chance of missing objects at tile boundaries
-- The application uses SSD MobileNet V1 model optimized for tiling
+- The default model is SSD MobileNet V1, but you can use any compatible .hef model
+- For best results with small objects (like hornets), use higher resolution and more tiles
 
 To close the application, press Ctrl+C.
 

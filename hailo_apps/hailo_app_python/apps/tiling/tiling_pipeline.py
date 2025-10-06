@@ -17,6 +17,8 @@ from hailo_apps.hailo_app_python.core.common.defines import (
     TILING_POSTPROCESS_FUNCTION,
     RESOURCES_SO_DIR_NAME,
     RESOURCES_MODELS_DIR_NAME,
+    DETECTION_POSTPROCESS_SO_FILENAME,
+    DETECTION_POSTPROCESS_FUNCTION,
 )
 from hailo_apps.hailo_app_python.core.gstreamer.gstreamer_helper_pipelines import SOURCE_PIPELINE, INFERENCE_PIPELINE, USER_CALLBACK_PIPELINE, DISPLAY_PIPELINE, TILE_CROPPER_PIPELINE
 from hailo_apps.hailo_app_python.core.gstreamer.gstreamer_app import GStreamerApp, app_callback_class, dummy_callback
@@ -39,6 +41,8 @@ class GStreamerTilingApp(GStreamerApp):
         parser.add_argument("--border_threshold", default=0.1, help="Set border threshold to Remove tile's exceeded objects. Relevant only for multi scaling. Default is 0.1")
         parser.add_argument("--single_scaling", action="store_true", help="Whether use single scaling or multi scaling. Default is multi scaling.")
         parser.add_argument("--scale_level", default=2, help="set scales (layers of tiles) in addition to the main layer [1,2,3] 1: {(1 X 1)} 2: {(1 X 1), (2 X 2)} 3: {(1 X 1), (2 X 2), (3 X 3)}. Default is 2. For singlescaling must be 0.")
+        parser.add_argument("--post-process-so", default=None, help="Path to post-processing .so file. If not specified, uses default MobileNet SSD post-process.")
+        parser.add_argument("--post-function", default=None, help="Post-processing function name. Common values: 'filter', 'filter_letterbox', 'mobilenet_ssd'. Default depends on post-process-so.")
         
         # Call the parent class constructor
         super().__init__(parser, user_data)
@@ -74,12 +78,48 @@ class GStreamerTilingApp(GStreamerApp):
                     resource_type=RESOURCES_MODELS_DIR_NAME
                 )
         
-        self.post_process_so = get_resource_path(
-            pipeline_name=None, 
-            resource_type=RESOURCES_SO_DIR_NAME, 
-            model=TILING_POSTPROCESS_SO_FILENAME
+        # Get post-processing library - use YOLO post-process by default for better detection
+        # You can override this with command-line arguments if needed
+        if hasattr(self.options_menu, 'post_process_so') and self.options_menu.post_process_so:
+            self.post_process_so = self.options_menu.post_process_so
+        else:
+            # Default path for YOLO post-processing
+            default_yolo_path = "/usr/local/hailo/resources/so/libyolo_hailortpp_postprocess.so"
+            
+            # Check if default path exists
+            from pathlib import Path
+            if Path(default_yolo_path).exists():
+                self.post_process_so = default_yolo_path
+            else:
+                # Try to find it via get_resource_path
+                self.post_process_so = get_resource_path(
+                    pipeline_name=None, 
+                    resource_type=RESOURCES_SO_DIR_NAME, 
+                    model=DETECTION_POSTPROCESS_SO_FILENAME
+                )
+                # Fallback to MobileNet SSD if YOLO not available
+                if self.post_process_so is None:
+                    self.post_process_so = get_resource_path(
+                        pipeline_name=None, 
+                        resource_type=RESOURCES_SO_DIR_NAME, 
+                        model=TILING_POSTPROCESS_SO_FILENAME
+                    )
+        
+        if hasattr(self.options_menu, 'post_function') and self.options_menu.post_function:
+            self.post_function = self.options_menu.post_function
+        else:
+            # Use 'filter' for tiling (no letterbox needed on tiles)
+            # Tiles are already cropped and resized without padding
+            self.post_function = "filter"
+        
+        # Set default NMS thresholds for post-processing
+        self.nms_score_threshold = 0.3  # Minimum confidence score
+        self.nms_iou_threshold = 0.45   # IoU threshold for NMS
+        self.thresholds_str = (
+            f"nms-score-threshold={self.nms_score_threshold} "
+            f"nms-iou-threshold={self.nms_iou_threshold} "
+            f"output-format-type=HAILO_FORMAT_TYPE_FLOAT32"
         )
-        self.post_function = TILING_POSTPROCESS_FUNCTION
 
         self.app_callback = app_callback
         setproctitle.setproctitle(TILING_APP_TITLE)
@@ -96,7 +136,8 @@ class GStreamerTilingApp(GStreamerApp):
             hef_path=self.hef_path,
             post_process_so=self.post_process_so,
             post_function_name=self.post_function,
-            batch_size=self.batch_size)
+            batch_size=self.batch_size,
+            additional_params=self.thresholds_str)
         
         tile_cropper_pipeline = TILE_CROPPER_PIPELINE(
             detection_pipeline,
