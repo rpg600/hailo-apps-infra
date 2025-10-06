@@ -154,6 +154,7 @@ class GStreamerTilingApp(GStreamerApp):
             post_process_so=self.post_process_so,
             post_function_name=self.post_function,
             batch_size=self.batch_size,
+            config_json=self.options_menu.labels_json,
             additional_params=self.thresholds_str)
         
         tile_cropper_pipeline = TILE_CROPPER_PIPELINE(
@@ -185,21 +186,29 @@ class GStreamerTilingApp(GStreamerApp):
         return pipeline_string
     
 def app_callback(pad, info, user_data):
-    """Custom callback to process detections from tiled inference."""
+    """Custom callback to process and filter detections from tiled inference."""
     buffer = info.get_buffer()
     if buffer is None:
         return Gst.PadProbeReturn.OK
     
-    roi = hailo.get_roi_from_buffer(buffer)
-    detections = roi.get_objects_typed(hailo.HAILO_DETECTION)
+    # Get class filter from user_data if available
+    class_filter = getattr(user_data, 'class_filter', None)
     
-    # Process each detection from the aggregated tiles
-    for detection in detections:
-        label = detection.get_label()
-        confidence = detection.get_confidence()
-        bbox = detection.get_bbox()
-        # Optional: print detection info for debugging
-        # print(f'Detection: {label} ({confidence:.2f}) at [{bbox.xmin():.2f}, {bbox.ymin():.2f}, {bbox.width():.2f}, {bbox.height():.2f}]')
+    if class_filter:
+        # Filter detections by removing unwanted classes from the buffer
+        roi = hailo.get_roi_from_buffer(buffer)
+        detections = roi.get_objects_typed(hailo.HAILO_DETECTION)
+        
+        # Remove detections that don't match the filter
+        detections_to_remove = []
+        for detection in detections:
+            label = detection.get_label()
+            if label not in class_filter:
+                detections_to_remove.append(detection)
+        
+        # Remove unwanted detections from ROI
+        for detection in detections_to_remove:
+            roi.remove_object(detection)
     
     return Gst.PadProbeReturn.OK
 

@@ -108,11 +108,11 @@ hailo-tile --input rpi \
 
 This will only display detections for "hornet" and "bee" classes. All other detections will be filtered out.
 
-### Using --labels-json (Advanced):
-Create a custom labels file to rename or filter classes:
+### Using --labels-json (Recommended - filters in GStreamer):
+Create a custom labels file to filter classes **at the pipeline level** (more efficient):
 
 ```bash
-# Create labels file
+# Create labels file with only your 2 classes
 cat > /home/pi/my_labels.json << 'EOF'
 {
   "labels": [
@@ -122,11 +122,13 @@ cat > /home/pi/my_labels.json << 'EOF'
 }
 EOF
 
-# Use it
+# Use it - only hornet and bee will be detected and displayed
 hailo-tile --input rpi \
   --hef-path /path/to/model.hef \
   --labels-json /home/pi/my_labels.json
 ```
+
+**Important**: The `--labels-json` method filters classes in the GStreamer pipeline (via `hailofilter`), so unwanted classes are removed **before** drawing boxes. This is more efficient than `--class-filter` which only filters in the Python callback.
 
 ## Using Your Own Model
 
