@@ -4,6 +4,10 @@ from pathlib import Path
 import socket
 import json
 
+import gi
+gi.require_version('Gst', '1.0')
+from gi.repository import Gst
+
 import setproctitle
 
 # Local application-specific imports
