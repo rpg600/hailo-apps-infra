@@ -1,11 +1,10 @@
 # region imports
 # Standard library imports
-import setproctitle
+from pathlib import Path
+import socket
+import json
 
-# Third-party imports
-import gi
-gi.require_version('Gst', '1.0')
-from gi.repository import Gst
+import setproctitle
 
 # Local application-specific imports
 import hailo
@@ -48,6 +47,7 @@ class GStreamerTilingApp(GStreamerApp):
         parser.add_argument("--video-width", type=int, default=1280, help="Video width in pixels. Default is 1280")
         parser.add_argument("--video-height", type=int, default=720, help="Video height in pixels. Default is 720")
         parser.add_argument("--enable-tracking", action="store_true", help="Enable object tracking to assign unique IDs to each detected object.")
+        parser.add_argument("--targeting-port", type=int, default=None, help="UDP port to send targeting coordinates to external script (e.g., 5000)")
         
         # Call the parent class constructor
         super().__init__(parser, user_data)
@@ -153,6 +153,20 @@ class GStreamerTilingApp(GStreamerApp):
             print(f"Class filter enabled: {self.class_filter}")
             # Pass class filter to user_data for use in callback
             user_data.class_filter = self.class_filter
+        
+        # Setup UDP socket for targeting system if port specified
+        if self.options_menu.targeting_port:
+            try:
+                user_data.targeting_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                user_data.targeting_port = self.options_menu.targeting_port
+                user_data.video_width = self.video_width
+                user_data.video_height = self.video_height
+                print(f"🎯 Targeting system enabled: sending coordinates to localhost:{self.options_menu.targeting_port}")
+            except Exception as e:
+                print(f"Warning: Could not create targeting socket: {e}")
+                user_data.targeting_socket = None
+        else:
+            user_data.targeting_socket = None
 
         self.app_callback = app_callback
         setproctitle.setproctitle(TILING_APP_TITLE)
@@ -240,13 +254,39 @@ def app_callback(pad, info, user_data):
         confidence = detection.get_confidence()
         bbox = detection.get_bbox()
         
+        # Calculate center coordinates for targeting system
+        center_x = bbox.xmin() + (bbox.width() / 2)
+        center_y = bbox.ymin() + (bbox.height() / 2)
+        
         # Get tracking ID if available
         unique_ids = detection.get_objects_typed(hailo.HAILO_UNIQUE_ID)
-        if unique_ids:
-            track_id = unique_ids[0].get_id()
-            print(f"Detection: {label} #{track_id} Confidence: {confidence:.2f} BBox: [{bbox.xmin():.2f}, {bbox.ymin():.2f}, {bbox.width():.2f}, {bbox.height():.2f}]")
+        track_id = unique_ids[0].get_id() if unique_ids else None
+        
+        # Send to external targeting system via UDP if enabled
+        targeting_socket = getattr(user_data, 'targeting_socket', None)
+        if targeting_socket:
+            target_data = {
+                "label": label,
+                "track_id": track_id,
+                "center_x": round(center_x, 1),
+                "center_y": round(center_y, 1),
+                "confidence": round(confidence, 2),
+                "width": round(bbox.width(), 1),
+                "height": round(bbox.height(), 1),
+                "resolution_width": user_data.video_width,
+                "resolution_height": user_data.video_height
+            }
+            try:
+                message = json.dumps(target_data).encode('utf-8')
+                targeting_socket.sendto(message, ('localhost', user_data.targeting_port))
+            except Exception as e:
+                pass  # Silently ignore send errors
+        
+        # Print to console
+        if track_id:
+            print(f"🎯 TARGET: {label} #{track_id} | Center: ({center_x:.1f}, {center_y:.1f}) | Confidence: {confidence:.2f} | Size: {bbox.width():.1f}×{bbox.height():.1f}")
         else:
-            print(f"Detection: {label} Confidence: {confidence:.2f} BBox: [{bbox.xmin():.2f}, {bbox.ymin():.2f}, {bbox.width():.2f}, {bbox.height():.2f}]")
+            print(f"🎯 TARGET: {label} | Center: ({center_x:.1f}, {center_y:.1f}) | Confidence: {confidence:.2f} | Size: {bbox.width():.1f}×{bbox.height():.1f}")
     
     # Remove unwanted detections from ROI
     for detection in detections_to_remove:
