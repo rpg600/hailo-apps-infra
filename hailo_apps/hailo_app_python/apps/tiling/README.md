@@ -49,27 +49,36 @@ hailo-tile --input rpi \
   --iou_threshold 0.3
 ```
 
-#### Run with single-scale tiling:
+#### Run with multi-scale tiling (slower but more accurate):
 ```bash
-hailo-tile --input rpi --single_scaling
+hailo-tile --input rpi --multi_scaling --scale_level 2
+```
+
+#### Run with more tiles for better small object detection:
+```bash
+hailo-tile --input rpi \
+  --tiles_along_x_axis 4 \
+  --tiles_along_y_axis 3 \
+  --overlap_x_axis 0.1 \
+  --overlap_y_axis 0.1
 ```
 
 ## Command-line Arguments
 
-### Tiling Parameters
-- `--tiles_along_x_axis`: Number of tiles along x axis (columns). Default: 4
-- `--tiles_along_y_axis`: Number of tiles along y axis (rows). Default: 3
-- `--overlap_x_axis`: Overlap percentage between tiles along x axis. Default: 0.1
-- `--overlap_y_axis`: Overlap percentage between tiles along y axis. Default: 0.08
+### Tiling Parameters (Optimized for Performance)
+- `--tiles_along_x_axis`: Number of tiles along x axis (columns). **Default: 3** (6 tiles total = fast)
+- `--tiles_along_y_axis`: Number of tiles along y axis (rows). **Default: 2**
+- `--overlap_x_axis`: Overlap percentage between tiles along x axis. **Default: 0.0** (no overlap = faster)
+- `--overlap_y_axis`: Overlap percentage between tiles along y axis. **Default: 0.0**
 - `--iou_threshold`: IoU threshold for NMS aggregation. Default: 0.3
-- `--border_threshold`: Border threshold to remove tile's exceeded objects. Default: 0.1
-- `--single_scaling`: Use single scaling instead of multi-scaling. Default: False
-- `--scale_level`: Number of scale layers [0-3]. Default: 2. For single scaling, must be 0.
+- `--border_threshold`: Border threshold to remove tile's exceeded objects. **Default: 0.0** (auto-set to 0.1 with multi-scaling)
+- `--multi_scaling`: Enable multi-scaling mode for better accuracy (slower, ~2-5 FPS on RPi). **Default: disabled** (single-scale mode is faster, ~10-15 FPS)
+- `--scale_level`: Number of scale layers [0-3]. **Default: 0** (single scale). Auto-set to 2 when using --multi_scaling
 
 ### Model Parameters
 - `--hef-path`: Path to your custom .hef model file
 - `--post-process-so`: Path to post-processing .so file (optional, defaults to YOLO post-process)
-- `--post-function`: Post-processing function name (optional, defaults to `filter_letterbox`)
+- `--post-function`: Post-processing function name (optional, defaults to `filter`)
 
 ### Default Post-Processing Parameters
 The application uses these optimized defaults for YOLO models:

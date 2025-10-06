@@ -33,23 +33,30 @@ class GStreamerTilingApp(GStreamerApp):
     def __init__(self, app_callback, user_data, parser=None):
         if parser == None:
             parser = get_default_parser()
-        parser.add_argument("--tiles_along_x_axis", default=4, help="Set number of tiles along x axis (columns). Default is 4")
-        parser.add_argument("--tiles_along_y_axis", default=3, help="Set number of tiles along y axis (rows). Default is 3")
-        parser.add_argument("--overlap_x_axis", default=0.1, help="Set overlap in percentage between tiles along x axis (columns). Default is 0.1")
-        parser.add_argument("--overlap_y_axis", default=0.08, help="Set overlap in percentage between tiles along y axis (rows). Default is 0.08")
+        parser.add_argument("--tiles_along_x_axis", default=3, help="Set number of tiles along x axis (columns). Default is 3")
+        parser.add_argument("--tiles_along_y_axis", default=2, help="Set number of tiles along y axis (rows). Default is 2")
+        parser.add_argument("--overlap_x_axis", default=0.0, help="Set overlap in percentage between tiles along x axis (columns). Default is 0.0")
+        parser.add_argument("--overlap_y_axis", default=0.0, help="Set overlap in percentage between tiles along y axis (rows). Default is 0.0")
         parser.add_argument("--iou_threshold", default=0.3, help="Set iou threshold for NMS. Default is 0.3")
-        parser.add_argument("--border_threshold", default=0.1, help="Set border threshold to Remove tile's exceeded objects. Relevant only for multi scaling. Default is 0.1")
-        parser.add_argument("--single_scaling", action="store_true", help="Whether use single scaling or multi scaling. Default is multi scaling.")
-        parser.add_argument("--scale_level", default=2, help="set scales (layers of tiles) in addition to the main layer [1,2,3] 1: {(1 X 1)} 2: {(1 X 1), (2 X 2)} 3: {(1 X 1), (2 X 2), (3 X 3)}. Default is 2. For singlescaling must be 0.")
+        parser.add_argument("--border_threshold", default=0.0, help="Set border threshold to Remove tile's exceeded objects. Relevant only for multi scaling. Default is 0.0")
+        parser.add_argument("--multi_scaling", action="store_true", help="Enable multi-scaling mode for better accuracy (slower). Default is single-scale mode (faster).")
+        parser.add_argument("--scale_level", default=0, help="set scales (layers of tiles) in addition to the main layer [0,1,2,3]. 0: single scale (default), 1: {(1x1)}, 2: {(1x1), (2x2)}, 3: {(1x1), (2x2), (3x3)}. Default is 0.")
         parser.add_argument("--post-process-so", default=None, help="Path to post-processing .so file. If not specified, uses default MobileNet SSD post-process.")
         parser.add_argument("--post-function", default=None, help="Post-processing function name. Common values: 'filter', 'filter_letterbox', 'mobilenet_ssd'. Default depends on post-process-so.")
         
         # Call the parent class constructor
         super().__init__(parser, user_data)
         
-        if self.options_menu.single_scaling:
+        # Handle multi_scaling flag
+        if self.options_menu.multi_scaling:
+            if self.options_menu.scale_level == 0:
+                self.options_menu.scale_level = 2  # Default multi-scale level
+            if self.options_menu.border_threshold == 0.0:
+                self.options_menu.border_threshold = 0.1  # Enable border threshold for multi-scale
+        else:
+            # Single scaling mode (default)
             self.options_menu.scale_level = 0
-            self.options_menu.border_threshold = 0
+            self.options_menu.border_threshold = 0.0
 
         # Determine the architecture if not specified
         if self.options_menu.arch is None:
@@ -144,13 +151,13 @@ class GStreamerTilingApp(GStreamerApp):
             name='tile_cropper_wrapper',
             internal_offset=True,
             scale_level=self.options_menu.scale_level,
-            tiling_mode=0 if self.options_menu.single_scaling else 1,
+            tiling_mode=1 if self.options_menu.multi_scaling else 0,
             tiles_along_x_axis=self.options_menu.tiles_along_x_axis,
             tiles_along_y_axis=self.options_menu.tiles_along_y_axis,
             overlap_x_axis=self.options_menu.overlap_x_axis,
             overlap_y_axis=self.options_menu.overlap_y_axis,
             iou_threshold=self.options_menu.iou_threshold,
-            border_threshold=0 if self.options_menu.single_scaling else self.options_menu.border_threshold
+            border_threshold=self.options_menu.border_threshold
         )
 
         user_callback_pipeline = USER_CALLBACK_PIPELINE()
