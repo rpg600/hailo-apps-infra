@@ -258,9 +258,20 @@ def app_callback(pad, info, user_data):
         confidence = detection.get_confidence()
         bbox = detection.get_bbox()
         
-        # Calculate center coordinates for targeting system
-        center_x = bbox.xmin() + (bbox.width() / 2)
-        center_y = bbox.ymin() + (bbox.height() / 2)
+        # Get video resolution from user_data
+        video_width = getattr(user_data, 'video_width', 1280)
+        video_height = getattr(user_data, 'video_height', 720)
+        
+        # Convert normalized coordinates (0-1) to pixel coordinates
+        # BBox coordinates are normalized, multiply by resolution
+        bbox_xmin_px = bbox.xmin() * video_width
+        bbox_ymin_px = bbox.ymin() * video_height
+        bbox_width_px = bbox.width() * video_width
+        bbox_height_px = bbox.height() * video_height
+        
+        # Calculate center coordinates in pixels
+        center_x = bbox_xmin_px + (bbox_width_px / 2)
+        center_y = bbox_ymin_px + (bbox_height_px / 2)
         
         # Get tracking ID if available
         unique_ids = detection.get_objects_typed(hailo.HAILO_UNIQUE_ID)
@@ -275,10 +286,10 @@ def app_callback(pad, info, user_data):
                 "center_x": round(center_x, 1),
                 "center_y": round(center_y, 1),
                 "confidence": round(confidence, 2),
-                "width": round(bbox.width(), 1),
-                "height": round(bbox.height(), 1),
-                "resolution_width": user_data.video_width,
-                "resolution_height": user_data.video_height
+                "width": round(bbox_width_px, 1),
+                "height": round(bbox_height_px, 1),
+                "resolution_width": video_width,
+                "resolution_height": video_height
             }
             try:
                 # Add newline for easier parsing
