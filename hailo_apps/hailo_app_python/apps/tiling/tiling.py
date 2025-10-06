@@ -17,7 +17,7 @@ class user_app_callback_class(app_callback_class):
     def __init__(self):
         super().__init__()
 
-# User-defined callback function: This is the callback function that will be called when data is available from the pipeline
+# User-defined callback function with class filtering support
 def app_callback(pad, info, user_data):
     user_data.increment()  # Using the user_data to count the number of frames
     string_to_print = f"Frame count: {user_data.get_count()}\n"
@@ -28,9 +28,19 @@ def app_callback(pad, info, user_data):
     roi = hailo.get_roi_from_buffer(buffer)
     detections = roi.get_objects_typed(hailo.HAILO_DETECTION)
     
+    # Get class filter from user_data if available
+    class_filter = getattr(user_data, 'class_filter', None)
+    
     # Process detections from tiled inference
+    filtered_count = 0
     for detection in detections:
         label = detection.get_label()
+        
+        # Apply class filter if specified
+        if class_filter and label not in class_filter:
+            continue  # Skip this detection
+        
+        filtered_count += 1
         confidence = detection.get_confidence()
         bbox = detection.get_bbox()
         string_to_print += (
@@ -39,7 +49,9 @@ def app_callback(pad, info, user_data):
             f"BBox: [{bbox.xmin():.2f}, {bbox.ymin():.2f}, {bbox.width():.2f}, {bbox.height():.2f}]\n"
         )
     
-    print(string_to_print)
+    if filtered_count > 0 or user_data.get_count() % 30 == 0:  # Print every 30 frames or when detections found
+        print(string_to_print)
+    
     return Gst.PadProbeReturn.OK
 
 if __name__ == "__main__":

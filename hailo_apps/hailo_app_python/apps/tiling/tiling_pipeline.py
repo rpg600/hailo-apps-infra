@@ -43,6 +43,8 @@ class GStreamerTilingApp(GStreamerApp):
         parser.add_argument("--scale_level", default=0, help="set scales (layers of tiles) in addition to the main layer [0,1,2,3]. 0: single scale (default), 1: {(1x1)}, 2: {(1x1), (2x2)}, 3: {(1x1), (2x2), (3x3)}. Default is 0.")
         parser.add_argument("--post-process-so", default=None, help="Path to post-processing .so file. If not specified, uses default MobileNet SSD post-process.")
         parser.add_argument("--post-function", default=None, help="Post-processing function name. Common values: 'filter', 'filter_letterbox', 'mobilenet_ssd'. Default depends on post-process-so.")
+        parser.add_argument("--labels-json", default=None, help="Path to custom labels JSON file to filter/rename classes.")
+        parser.add_argument("--class-filter", default=None, help="Comma-separated list of class names to keep (e.g., 'hornet,bee'). All other classes will be filtered out.")
         
         # Call the parent class constructor
         super().__init__(parser, user_data)
@@ -127,6 +129,14 @@ class GStreamerTilingApp(GStreamerApp):
             f"nms-iou-threshold={self.nms_iou_threshold} "
             f"output-format-type=HAILO_FORMAT_TYPE_FLOAT32"
         )
+        
+        # Parse class filter if provided
+        self.class_filter = None
+        if self.options_menu.class_filter:
+            self.class_filter = set(cls.strip() for cls in self.options_menu.class_filter.split(','))
+            print(f"Class filter enabled: {self.class_filter}")
+            # Pass class filter to user_data for use in callback
+            user_data.class_filter = self.class_filter
 
         self.app_callback = app_callback
         setproctitle.setproctitle(TILING_APP_TITLE)

@@ -79,6 +79,8 @@ hailo-tile --input rpi \
 - `--hef-path`: Path to your custom .hef model file
 - `--post-process-so`: Path to post-processing .so file (optional, defaults to YOLO post-process)
 - `--post-function`: Post-processing function name (optional, defaults to `filter`)
+- `--labels-json`: Path to custom labels JSON file to filter/rename classes
+- `--class-filter`: Comma-separated list of class names to keep (e.g., `hornet,bee`). All other classes will be filtered out
 
 ### Default Post-Processing Parameters
 The application uses these optimized defaults for YOLO models:
@@ -92,6 +94,39 @@ The application uses these optimized defaults for YOLO models:
 2. **Detection**: Each tile is processed through the detection pipeline
 3. **Aggregation**: Detections from all tiles are combined using NMS to remove duplicates
 4. **Output**: The final frame contains all unique detections from all tiles
+
+## Filtering Classes
+
+If your model detects multiple classes but you only want to see specific ones (e.g., only hornets and bees):
+
+### Using --class-filter (Simple):
+```bash
+hailo-tile --input rpi \
+  --hef-path /path/to/yolov8_hornet.hef \
+  --class-filter "hornet,bee"
+```
+
+This will only display detections for "hornet" and "bee" classes. All other detections will be filtered out.
+
+### Using --labels-json (Advanced):
+Create a custom labels file to rename or filter classes:
+
+```bash
+# Create labels file
+cat > /home/pi/my_labels.json << 'EOF'
+{
+  "labels": [
+    "hornet",
+    "bee"
+  ]
+}
+EOF
+
+# Use it
+hailo-tile --input rpi \
+  --hef-path /path/to/model.hef \
+  --labels-json /home/pi/my_labels.json
+```
 
 ## Using Your Own Model
 
