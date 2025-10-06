@@ -68,8 +68,8 @@ hailo-tile --input rpi \
 ### Tiling Parameters (Optimized for Performance)
 - `--tiles_along_x_axis`: Number of tiles along x axis (columns). **Default: 3** (6 tiles total = fast)
 - `--tiles_along_y_axis`: Number of tiles along y axis (rows). **Default: 2**
-- `--overlap_x_axis`: Overlap percentage between tiles along x axis. **Default: 0.0** (no overlap = faster)
-- `--overlap_y_axis`: Overlap percentage between tiles along y axis. **Default: 0.0**
+- `--overlap_x_axis`: Overlap percentage between tiles along x axis. **Default: 0.1** (10% overlap to avoid missing objects at tile borders)
+- `--overlap_y_axis`: Overlap percentage between tiles along y axis. **Default: 0.1** (10% overlap)
 - `--iou_threshold`: IoU threshold for NMS aggregation. Default: 0.3
 - `--border_threshold`: Border threshold to remove tile's exceeded objects. **Default: 0.0** (auto-set to 0.1 with multi-scaling)
 - `--multi_scaling`: Enable multi-scaling mode for better accuracy (slower, ~2-5 FPS on RPi). **Default: disabled** (single-scale mode is faster, ~10-15 FPS)
