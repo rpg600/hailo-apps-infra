@@ -281,16 +281,11 @@ def app_callback(pad, info, user_data):
                 "resolution_height": user_data.video_height
             }
             try:
-                message = json.dumps(target_data).encode('utf-8')
+                # Add newline for easier parsing
+                message = (json.dumps(target_data) + '\n').encode('utf-8')
                 targeting_socket.sendto(message, ('localhost', user_data.targeting_port))
             except Exception as e:
                 pass  # Silently ignore send errors
-        
-        # Print to console
-        if track_id:
-            print(f"🎯 TARGET: {label} #{track_id} | Center: ({center_x:.1f}, {center_y:.1f}) | Confidence: {confidence:.2f} | Size: {bbox.width():.1f}×{bbox.height():.1f}")
-        else:
-            print(f"🎯 TARGET: {label} | Center: ({center_x:.1f}, {center_y:.1f}) | Confidence: {confidence:.2f} | Size: {bbox.width():.1f}×{bbox.height():.1f}")
     
     # Remove unwanted detections from ROI
     for detection in detections_to_remove:
