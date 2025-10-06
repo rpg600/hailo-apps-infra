@@ -45,9 +45,19 @@ class GStreamerTilingApp(GStreamerApp):
         parser.add_argument("--post-function", default=None, help="Post-processing function name. Common values: 'filter', 'filter_letterbox', 'mobilenet_ssd'. Default depends on post-process-so.")
         parser.add_argument("--labels-json", default=None, help="Path to custom labels JSON file to filter/rename classes.")
         parser.add_argument("--class-filter", default=None, help="Comma-separated list of class names to keep (e.g., 'hornet,bee'). All other classes will be filtered out.")
+        parser.add_argument("--video-width", type=int, default=1280, help="Video width in pixels. Default is 1280")
+        parser.add_argument("--video-height", type=int, default=720, help="Video height in pixels. Default is 720")
         
         # Call the parent class constructor
         super().__init__(parser, user_data)
+        
+        # Override video resolution if specified
+        if self.options_menu.video_width:
+            self.video_width = self.options_menu.video_width
+        if self.options_menu.video_height:
+            self.video_height = self.options_menu.video_height
+        
+        print(f"Video resolution: {self.video_width}×{self.video_height}")
         
         # Handle multi_scaling flag
         if self.options_menu.multi_scaling:

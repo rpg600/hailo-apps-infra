@@ -63,6 +63,22 @@ hailo-tile --input rpi \
   --overlap_y_axis 0.1
 ```
 
+#### Run with higher resolution for better quality:
+```bash
+hailo-tile --input rpi \
+  --video-width 1920 \
+  --video-height 1080 \
+  --frame-rate 10
+```
+
+#### Run with lower resolution for better performance:
+```bash
+hailo-tile --input rpi \
+  --video-width 640 \
+  --video-height 480 \
+  --frame-rate 20
+```
+
 ## Command-line Arguments
 
 ### Tiling Parameters (Optimized for Performance)
@@ -81,6 +97,11 @@ hailo-tile --input rpi \
 - `--post-function`: Post-processing function name (optional, defaults to `filter`)
 - `--labels-json`: Path to custom labels JSON file to filter/rename classes
 - `--class-filter`: Comma-separated list of class names to keep (e.g., `hornet,bee`). All other classes will be filtered out
+
+### Video Parameters
+- `--video-width`: Video width in pixels. **Default: 1280**
+- `--video-height`: Video height in pixels. **Default: 720**
+- `--frame-rate`: Frame rate in FPS. Default: 30
 
 ### Default Post-Processing Parameters
 The application uses these optimized defaults for YOLO models:
