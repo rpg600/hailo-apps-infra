@@ -103,6 +103,9 @@ hailo-tile --input rpi \
 - `--video-height`: Video height in pixels. **Default: 720**
 - `--frame-rate`: Frame rate in FPS. Default: 30
 
+### Tracking Parameters
+- `--enable-tracking`: Enable object tracking to assign unique IDs to each detected object. Each object will be tracked across frames with a persistent ID.
+
 ### Default Post-Processing Parameters
 The application uses these optimized defaults for YOLO models:
 - **NMS Score Threshold**: 0.3 (minimum confidence to keep a detection)
@@ -115,6 +118,31 @@ The application uses these optimized defaults for YOLO models:
 2. **Detection**: Each tile is processed through the detection pipeline
 3. **Aggregation**: Detections from all tiles are combined using NMS to remove duplicates
 4. **Output**: The final frame contains all unique detections from all tiles
+
+## Object Tracking
+
+Enable tracking to assign unique IDs to each detected object and track them across frames:
+
+```bash
+hailo-tile --input rpi \
+  --hef-path /path/to/model.hef \
+  --labels-json /home/pi/hornet_labels.json \
+  --enable-tracking
+```
+
+**Output example:**
+```
+Frame count: 42
+Detection: hornet #17 Confidence: 0.85 BBox: [120.5, 340.2, 45.3, 52.1]
+Detection: bee #23 Confidence: 0.92 BBox: [450.1, 210.8, 38.7, 41.2]
+Detection: hornet #17 Confidence: 0.87 BBox: [125.3, 345.6, 46.1, 53.4]  # Same hornet tracked
+```
+
+Each object gets a **unique ID** (e.g., #17, #23) that persists across frames, allowing you to:
+- Count individual objects
+- Track movement patterns
+- Identify when objects enter/leave the scene
+- Distinguish between different instances of the same class
 
 ## Filtering Classes
 

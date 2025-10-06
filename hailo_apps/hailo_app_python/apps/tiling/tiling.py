@@ -17,7 +17,7 @@ class user_app_callback_class(app_callback_class):
     def __init__(self):
         super().__init__()
 
-# User-defined callback function with class filtering support
+# User-defined callback function with class filtering and tracking support
 def app_callback(pad, info, user_data):
     user_data.increment()  # Using the user_data to count the number of frames
     string_to_print = f"Frame count: {user_data.get_count()}\n"
@@ -43,11 +43,22 @@ def app_callback(pad, info, user_data):
         filtered_count += 1
         confidence = detection.get_confidence()
         bbox = detection.get_bbox()
-        string_to_print += (
-            f"Detection: {label} "
-            f"Confidence: {confidence:.2f} "
-            f"BBox: [{bbox.xmin():.2f}, {bbox.ymin():.2f}, {bbox.width():.2f}, {bbox.height():.2f}]\n"
-        )
+        
+        # Get tracking ID if available
+        unique_ids = detection.get_objects_typed(hailo.HAILO_UNIQUE_ID)
+        if unique_ids:
+            track_id = unique_ids[0].get_id()
+            string_to_print += (
+                f"Detection: {label} #{track_id} "
+                f"Confidence: {confidence:.2f} "
+                f"BBox: [{bbox.xmin():.2f}, {bbox.ymin():.2f}, {bbox.width():.2f}, {bbox.height():.2f}]\n"
+            )
+        else:
+            string_to_print += (
+                f"Detection: {label} "
+                f"Confidence: {confidence:.2f} "
+                f"BBox: [{bbox.xmin():.2f}, {bbox.ymin():.2f}, {bbox.width():.2f}, {bbox.height():.2f}]\n"
+            )
     
     if filtered_count > 0 or user_data.get_count() % 30 == 0:  # Print every 30 frames or when detections found
         print(string_to_print)

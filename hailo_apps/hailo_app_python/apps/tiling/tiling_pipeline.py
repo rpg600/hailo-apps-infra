@@ -20,7 +20,7 @@ from hailo_apps.hailo_app_python.core.common.defines import (
     DETECTION_POSTPROCESS_SO_FILENAME,
     DETECTION_POSTPROCESS_FUNCTION,
 )
-from hailo_apps.hailo_app_python.core.gstreamer.gstreamer_helper_pipelines import SOURCE_PIPELINE, INFERENCE_PIPELINE, USER_CALLBACK_PIPELINE, DISPLAY_PIPELINE, TILE_CROPPER_PIPELINE
+from hailo_apps.hailo_app_python.core.gstreamer.gstreamer_helper_pipelines import SOURCE_PIPELINE, INFERENCE_PIPELINE, USER_CALLBACK_PIPELINE, DISPLAY_PIPELINE, TILE_CROPPER_PIPELINE, TRACKER_PIPELINE
 from hailo_apps.hailo_app_python.core.gstreamer.gstreamer_app import GStreamerApp, app_callback_class, dummy_callback
 # endregion imports
 
@@ -47,6 +47,7 @@ class GStreamerTilingApp(GStreamerApp):
         parser.add_argument("--class-filter", default=None, help="Comma-separated list of class names to keep (e.g., 'hornet,bee'). All other classes will be filtered out.")
         parser.add_argument("--video-width", type=int, default=1280, help="Video width in pixels. Default is 1280")
         parser.add_argument("--video-height", type=int, default=720, help="Video height in pixels. Default is 720")
+        parser.add_argument("--enable-tracking", action="store_true", help="Enable object tracking to assign unique IDs to each detected object.")
         
         # Call the parent class constructor
         super().__init__(parser, user_data)
@@ -186,16 +187,29 @@ class GStreamerTilingApp(GStreamerApp):
             border_threshold=self.options_menu.border_threshold
         )
 
-        user_callback_pipeline = USER_CALLBACK_PIPELINE()
-
-        display_pipeline = DISPLAY_PIPELINE(video_sink=self.video_sink, sync=self.sync, show_fps=self.show_fps)
-
-        pipeline_string = (
-            f'{source_pipeline} ! '
-            f'{tile_cropper_pipeline} ! '
-            f'{user_callback_pipeline} ! '
-            f'{display_pipeline}'
-        )
+        # Add tracker if enabled
+        if self.options_menu.enable_tracking:
+            tracker_pipeline = TRACKER_PIPELINE(class_id=-1)  # -1 = track all classes
+            user_callback_pipeline = USER_CALLBACK_PIPELINE()
+            display_pipeline = DISPLAY_PIPELINE(video_sink=self.video_sink, sync=self.sync, show_fps=self.show_fps)
+            
+            pipeline_string = (
+                f'{source_pipeline} ! '
+                f'{tile_cropper_pipeline} ! '
+                f'{tracker_pipeline} ! '
+                f'{user_callback_pipeline} ! '
+                f'{display_pipeline}'
+            )
+        else:
+            user_callback_pipeline = USER_CALLBACK_PIPELINE()
+            display_pipeline = DISPLAY_PIPELINE(video_sink=self.video_sink, sync=self.sync, show_fps=self.show_fps)
+            
+            pipeline_string = (
+                f'{source_pipeline} ! '
+                f'{tile_cropper_pipeline} ! '
+                f'{user_callback_pipeline} ! '
+                f'{display_pipeline}'
+            )
 
         print(pipeline_string)
         return pipeline_string
