@@ -130,6 +130,11 @@ class GStreamerTilingApp(GStreamerApp):
             f"output-format-type=HAILO_FORMAT_TYPE_FLOAT32"
         )
         
+        # Set batch_size to match number of tiles for optimal performance
+        # With 3x2 tiles = 6 tiles, batch_size=6 allows processing all tiles in one batch
+        self.batch_size = self.options_menu.tiles_along_x_axis * self.options_menu.tiles_along_y_axis
+        print(f"Batch size set to {self.batch_size} (matches {self.options_menu.tiles_along_x_axis}×{self.options_menu.tiles_along_y_axis} tiles)")
+        
         # Parse class filter if provided
         self.class_filter = None
         if self.options_menu.class_filter:
