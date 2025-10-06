@@ -223,21 +223,34 @@ def app_callback(pad, info, user_data):
     # Get class filter from user_data if available
     class_filter = getattr(user_data, 'class_filter', None)
     
-    if class_filter:
-        # Filter detections by removing unwanted classes from the buffer
-        roi = hailo.get_roi_from_buffer(buffer)
-        detections = roi.get_objects_typed(hailo.HAILO_DETECTION)
+    roi = hailo.get_roi_from_buffer(buffer)
+    detections = roi.get_objects_typed(hailo.HAILO_DETECTION)
+    
+    # Filter and display detections
+    detections_to_remove = []
+    for detection in detections:
+        label = detection.get_label()
         
-        # Remove detections that don't match the filter
-        detections_to_remove = []
-        for detection in detections:
-            label = detection.get_label()
-            if label not in class_filter:
-                detections_to_remove.append(detection)
+        # Filter if needed
+        if class_filter and label not in class_filter:
+            detections_to_remove.append(detection)
+            continue
         
-        # Remove unwanted detections from ROI
-        for detection in detections_to_remove:
-            roi.remove_object(detection)
+        # Display detection info
+        confidence = detection.get_confidence()
+        bbox = detection.get_bbox()
+        
+        # Get tracking ID if available
+        unique_ids = detection.get_objects_typed(hailo.HAILO_UNIQUE_ID)
+        if unique_ids:
+            track_id = unique_ids[0].get_id()
+            print(f"Detection: {label} #{track_id} Confidence: {confidence:.2f} BBox: [{bbox.xmin():.2f}, {bbox.ymin():.2f}, {bbox.width():.2f}, {bbox.height():.2f}]")
+        else:
+            print(f"Detection: {label} Confidence: {confidence:.2f} BBox: [{bbox.xmin():.2f}, {bbox.ymin():.2f}, {bbox.width():.2f}, {bbox.height():.2f}]")
+    
+    # Remove unwanted detections from ROI
+    for detection in detections_to_remove:
+        roi.remove_object(detection)
     
     return Gst.PadProbeReturn.OK
 
