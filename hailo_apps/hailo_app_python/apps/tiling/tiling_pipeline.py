@@ -52,6 +52,7 @@ class GStreamerTilingApp(GStreamerApp):
         parser.add_argument("--video-height", type=int, default=720, help="Video height in pixels. Default is 720")
         parser.add_argument("--enable-tracking", action="store_true", help="Enable object tracking to assign unique IDs to each detected object.")
         parser.add_argument("--targeting-port", type=int, default=None, help="UDP port to send targeting coordinates to external script (e.g., 5000)")
+        parser.add_argument("--targeting-host", type=str, default="localhost", help="UDP host/IP to send targeting coordinates (default: localhost)")
         
         # Call the parent class constructor
         super().__init__(parser, user_data)
@@ -163,9 +164,10 @@ class GStreamerTilingApp(GStreamerApp):
             try:
                 user_data.targeting_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
                 user_data.targeting_port = self.options_menu.targeting_port
+                user_data.targeting_host = self.options_menu.targeting_host
                 user_data.video_width = self.video_width
                 user_data.video_height = self.video_height
-                print(f"🎯 Targeting system enabled: sending coordinates to localhost:{self.options_menu.targeting_port}")
+                print(f"🎯 Targeting system enabled: sending coordinates to {self.options_menu.targeting_host}:{self.options_menu.targeting_port}")
             except Exception as e:
                 print(f"Warning: Could not create targeting socket: {e}")
                 user_data.targeting_socket = None
@@ -294,7 +296,7 @@ def app_callback(pad, info, user_data):
             try:
                 # Add newline for easier parsing
                 message = (json.dumps(target_data) + '\n').encode('utf-8')
-                targeting_socket.sendto(message, ('localhost', user_data.targeting_port))
+                targeting_socket.sendto(message, (user_data.targeting_host, user_data.targeting_port))
             except Exception as e:
                 pass  # Silently ignore send errors
     
